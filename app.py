@@ -1,10 +1,11 @@
 import plotly.express as px
+from shinywidgets import render_plotly, output_widget, render_widget
 from shiny.express import input, ui, render
-from shinywidgets import render_plotly
 from palmerpenguins import load_penguins
-from shinywidgets import output_widget, render_widget, render_plotly
 import seaborn as sns
-from shiny import render 
+from shiny import render, reactive
+
+ui.page_opts(title="Filling layout", fillable=True)
 
 
 penguins = load_penguins()
@@ -32,21 +33,21 @@ with ui.layout_columns():
         "Penguins Data Table"
         @render.data_frame
         def penguinstable_df():
-            return render.DataTable(penguins, filters=True,selection_mode='row')
+            return render.DataTable(filtered_data(), filters=True,selection_mode='row')
         
 
     with ui.card():
         "Penguins Data Grid"
         @render.data_frame
         def penguinsgrid_df():
-            return render.DataGrid(penguins, filters=True, selection_mode="row")
+            return render.DataGrid(filtered_data(), filters=True, selection_mode="row")
 
 
 with ui.layout_columns():
     with ui.card():
         @render.plot(alt="A Seaborn Histogram")
         def plot():
-            ax=sns.histplot(data=penguins,x="body_mass_g",bins=input.seaborn_bin_count())
+            ax=sns.histplot(data=filtered_data(),x="body_mass_g",bins=input.seaborn_bin_count())
             ax.set_title("Palmer Penguins")
             ax.set_xlabel("Mass (g)")
             ax.set_ylabel("Count")
@@ -56,7 +57,7 @@ with ui.layout_columns():
         "Plotly Histogram"
         @render_plotly
         def plotlyhistogram():
-            return px.histogram(penguins,x=input.selected_attribute(),
+            return px.histogram(filtered_data(),x=input.selected_attribute(),
                                nbins=input.plotly_bin_count(), color="species").update_layout(
                 xaxis_title="Bill Length (mm)",
                 yaxis_title="Count",)
@@ -66,11 +67,23 @@ with ui.card(full_screen=True):
     @render_plotly
     def plotly_scatterplot():
         return px.scatter(
-            data_frame=penguins,
+            data_frame=filtered_data(),
             x="body_mass_g",
             y="bill_depth_mm",
             color="species",
             color_discrete_sequence=["red","orange","blue"],
             labels={"body_mass_g": "Body Mass (g)",
                    "bill_depth_mm":"Bil Depth (mm):"})
-        
+
+# --------------------------------------------------------
+# Reactive calculations and effects
+# --------------------------------------------------------
+
+# Add a reactive calculation to filter the data
+# By decorating the function with @reactive, we can use the function to filter the data
+# The function will be called whenever an input functions used to generate that output changes.
+# Any output that depends on the reactive function (e.g., filtered_data()) will be updated when the data changes.
+
+@reactive.calc
+def filtered_data():
+    return penguins
